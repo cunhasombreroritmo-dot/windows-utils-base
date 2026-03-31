@@ -26,7 +26,9 @@ jobs:
             '.github/CODEOWNERS',
             '.github/PULL_REQUEST_TEMPLATE.md',
             '.github/ISSUE_TEMPLATE/bug_report.md',
-            '.github/ISSUE_TEMPLATE/feature_request.md'
+            '.github/ISSUE_TEMPLATE/feature_request.md',
+            'scripts/new-utility.ps1',
+            'utilities/README.md'
           )
 
           $missing = $required | Where-Object { -not (Test-Path $_) }

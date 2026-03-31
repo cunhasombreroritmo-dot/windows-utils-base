@@ -1,6 +1,6 @@
-# pc-project
+# windows-utils-base
 
-Base limpa para futuros utilitarios e automacoes desktop no Windows.
+Base para futuros utilitarios e automacoes desktop no Windows.
 
 ## Status
 
@@ -12,17 +12,34 @@ O bot legado de Capybara Clicker foi removido do codigo principal. O repositorio
 - `.editorconfig`: convencoes de edicao compartilhadas.
 - `.gitattributes`: normalizacao de finais de linha para Windows e Markdown.
 - `CONTRIBUTING.md`: regras curtas para branch, commit e pull request.
+- `scripts/new-utility.ps1`: cria a estrutura padrao para um novo utilitario.
+- `utilities/`: area onde cada novo utilitario entra com `src/`, `tests/` e `README.md`.
 
 ## Fluxo recomendado
 
 1. Crie uma branch curta a partir de `main`.
-2. Abra um draft PR cedo, mesmo antes de terminar a implementacao.
-3. Mantenha cada PR focado em uma unica mudanca.
-4. So faca merge depois que a revisao e os checks do GitHub passarem.
+2. Gere a base de um novo utilitario com `./scripts/new-utility.ps1 -Name <nome>`.
+3. Abra um draft PR cedo, mesmo antes de terminar a implementacao.
+4. Mantenha cada PR focado em uma unica mudanca.
+5. So faca merge depois que a revisao e os checks do GitHub passarem.
 
 ## Estado atual
 
-Ainda nao existe codigo ativo versionado alem da infraestrutura do proprio repositorio. Quando o proximo utilitario for criado, ele ja entra em uma base mais profissional.
+Ainda nao existe codigo ativo versionado alem da infraestrutura do proprio repositorio. O proximo utilitario entra pela pasta `utilities/` e ja nasce com uma base consistente.
+
+## Como iniciar um utilitario
+
+Exemplo:
+
+```powershell
+./scripts/new-utility.ps1 -Name clipboard-helper
+```
+
+Isso cria:
+
+- `utilities/clipboard-helper/README.md`
+- `utilities/clipboard-helper/src/`
+- `utilities/clipboard-helper/tests/`
 
 ## Licenca
 
