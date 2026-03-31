@@ -27,8 +27,8 @@ foreach ($path in $paths) {
 }
 
 $readmePath = Join-Path $utilityRoot 'README.md'
-$readme = @"
-# $Name
+$readmeTemplate = @'
+# __UTILITY_NAME__
 
 Resumo curto do utilitario.
 
@@ -44,7 +44,9 @@ Documente aqui como executar, testar e empacotar.
 
 - `src/`: codigo principal
 - `tests/`: testes e validacoes
-"@
+'@
+
+$readme = $readmeTemplate.Replace('__UTILITY_NAME__', $Name)
 
 Set-Content -LiteralPath $readmePath -Value $readme
 Set-Content -LiteralPath (Join-Path $utilityRoot 'src\.gitkeep') -Value ''
