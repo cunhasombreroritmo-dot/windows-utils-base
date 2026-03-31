@@ -88,7 +88,7 @@ function Get-DefaultDownloadsPath {
       return $knownFolderPath
     }
   } catch {
-    # Fall back to the conventional profile path when known-folder resolution is unavailable.
+    Write-Verbose "Falha ao resolver a Known Folder de Downloads. Usando caminho padrao. $($_.Exception.Message)"
   }
 
   $userProfile = [Environment]::GetFolderPath('UserProfile')
@@ -114,7 +114,7 @@ function Get-DownloadOrganizerManifestPath {
   return Join-Path $basePath 'WindowsUtilsBase\download-organizer\last-run.json'
 }
 
-function Ensure-DownloadOrganizerDirectory {
+function Initialize-DownloadOrganizerDirectory {
   [CmdletBinding()]
   param(
     [Parameter(Mandatory = $true)]
@@ -219,7 +219,7 @@ function Write-DownloadManifest {
   )
 
   $resolvedManifestPath = Get-DownloadOrganizerManifestPath -ManifestPath $ManifestPath
-  Ensure-DownloadOrganizerDirectory -Path $resolvedManifestPath
+  Initialize-DownloadOrganizerDirectory -Path $resolvedManifestPath
 
   $Manifest |
     ConvertTo-Json -Depth 6 |
@@ -313,7 +313,7 @@ function Invoke-DownloadOrganization {
     try {
       $resolvedManifestPath = Write-DownloadManifest -Manifest $manifest -ManifestPath $ManifestPath
     } catch {
-      # Best effort only. The initial planned manifest is already on disk.
+      Write-Verbose "Falha ao atualizar o manifesto apos erro de organizacao. $($_.Exception.Message)"
     }
 
     throw

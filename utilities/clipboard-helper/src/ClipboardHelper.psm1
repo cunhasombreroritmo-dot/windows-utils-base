@@ -19,7 +19,7 @@ function Get-ClipboardHelperStorePath {
   return Join-Path $basePath 'WindowsUtilsBase\clipboard-helper\history.json'
 }
 
-function Ensure-ClipboardHelperDirectory {
+function Initialize-ClipboardHelperDirectory {
   [CmdletBinding()]
   param(
     [Parameter(Mandatory = $true)]
@@ -66,7 +66,7 @@ function Write-ClipboardHistory {
   )
 
   $resolvedStorePath = Get-ClipboardHelperStorePath -StorePath $StorePath
-  Ensure-ClipboardHelperDirectory -Path $resolvedStorePath
+  Initialize-ClipboardHelperDirectory -Path $resolvedStorePath
 
   $historyItems = @($History)
   $json = if ($historyItems.Count -eq 0) {

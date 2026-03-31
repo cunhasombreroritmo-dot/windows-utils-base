@@ -7,11 +7,19 @@ Estrutura esperada:
 - `utilities/<nome>/README.md`
 - `utilities/<nome>/src/`
 - `utilities/<nome>/tests/`
+- `utilities/<nome>/tests/<nome>.Tests.ps1`
 
 Para criar a base automaticamente:
 
 ```powershell
 ./scripts/new-utility.ps1 -Name meu-utilitario
+```
+
+Antes de abrir PR para qualquer utilitario:
+
+```powershell
+./scripts/lint.ps1
+./scripts/test.ps1
 ```
 
 Utilitarios ja iniciados:

@@ -23,11 +23,16 @@ jobs:
             '.gitignore',
             '.editorconfig',
             '.gitattributes',
+            'PSScriptAnalyzerSettings.psd1',
             '.github/CODEOWNERS',
             '.github/PULL_REQUEST_TEMPLATE.md',
             '.github/ISSUE_TEMPLATE/bug_report.md',
             '.github/ISSUE_TEMPLATE/feature_request.md',
+            '.github/workflows/powershell-quality.yml',
+            'scripts/bootstrap-dev.ps1',
+            'scripts/lint.ps1',
             'scripts/new-utility.ps1',
+            'scripts/test.ps1',
             'utilities/README.md'
           )
 
