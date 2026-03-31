@@ -13,3 +13,7 @@ Para criar a base automaticamente:
 ```powershell
 ./scripts/new-utility.ps1 -Name meu-utilitario
 ```
+
+Utilitarios ja iniciados:
+
+- `clipboard-helper`: historico simples de textos da area de transferencia com persistencia local
