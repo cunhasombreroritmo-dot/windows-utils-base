@@ -1,5 +1,39 @@
 Set-StrictMode -Version Latest
 
+if (-not ([System.Management.Automation.PSTypeName]'WindowsUtilsBase.KnownFolders').Type) {
+  Add-Type -TypeDefinition @"
+using System;
+using System.Runtime.InteropServices;
+
+namespace WindowsUtilsBase {
+  public static class KnownFolders {
+    [DllImport("shell32.dll")]
+    private static extern int SHGetKnownFolderPath(
+      [MarshalAs(UnmanagedType.LPStruct)] Guid rfid,
+      uint dwFlags,
+      IntPtr hToken,
+      out IntPtr ppszPath);
+
+    public static string GetPath(Guid folderId) {
+      IntPtr pathPtr;
+      int hr = SHGetKnownFolderPath(folderId, 0, IntPtr.Zero, out pathPtr);
+      if (hr != 0) {
+        Marshal.ThrowExceptionForHR(hr);
+      }
+
+      try {
+        return Marshal.PtrToStringUni(pathPtr);
+      } finally {
+        if (pathPtr != IntPtr.Zero) {
+          Marshal.FreeCoTaskMem(pathPtr);
+        }
+      }
+    }
+  }
+}
+"@
+}
+
 $script:DownloadCategoryMap = @{
   '.7z' = 'Archives'
   '.avi' = 'Video'
@@ -45,6 +79,17 @@ $script:DownloadCategoryMap = @{
 function Get-DefaultDownloadsPath {
   [CmdletBinding()]
   param()
+
+  $downloadsFolderId = [guid]'374DE290-123F-4565-9164-39C4925E467B'
+
+  try {
+    $knownFolderPath = [WindowsUtilsBase.KnownFolders]::GetPath($downloadsFolderId)
+    if (-not [string]::IsNullOrWhiteSpace($knownFolderPath)) {
+      return $knownFolderPath
+    }
+  } catch {
+    # Fall back to the conventional profile path when known-folder resolution is unavailable.
+  }
 
   $userProfile = [Environment]::GetFolderPath('UserProfile')
   return Join-Path $userProfile 'Downloads'
@@ -197,6 +242,41 @@ function Read-DownloadManifest {
   return Get-Content -LiteralPath $resolvedManifestPath -Raw | ConvertFrom-Json
 }
 
+function New-DownloadManifest {
+  [CmdletBinding()]
+  param(
+    [Parameter(Mandatory = $true)]
+    [System.Collections.IEnumerable]$Preview,
+
+    [Parameter(Mandatory = $true)]
+    [string]$SourcePath
+  )
+
+  $timestamp = [DateTimeOffset]::Now.ToString('o')
+
+  return [pscustomobject]@{
+    CreatedAt = $timestamp
+    UpdatedAt = $timestamp
+    CompletedAt = $null
+    FailedAt = $null
+    FailureMessage = $null
+    Status = 'planned'
+    SourcePath = $SourcePath
+    Entries = @(
+      foreach ($entry in $Preview) {
+        [pscustomobject]@{
+          Name = $entry.Name
+          Category = $entry.Category
+          SourcePath = $entry.SourcePath
+          TargetPath = $entry.TargetPath
+          State = 'pending'
+          MovedAt = $null
+        }
+      }
+    )
+  }
+}
+
 function Invoke-DownloadOrganization {
   [CmdletBinding()]
   param(
@@ -207,31 +287,44 @@ function Invoke-DownloadOrganization {
   $resolvedSourcePath = Resolve-DownloadSourcePath -SourcePath $SourcePath
   $preview = @(Get-DownloadOrganizationPreview -SourcePath $resolvedSourcePath)
 
-  foreach ($entry in $preview) {
-    $targetDirectory = Split-Path -Parent $entry.TargetPath
-    if (-not (Test-Path $targetDirectory)) {
-      New-Item -ItemType Directory -Path $targetDirectory -Force | Out-Null
+  $manifest = New-DownloadManifest -Preview $preview -SourcePath $resolvedSourcePath
+  $resolvedManifestPath = Write-DownloadManifest -Manifest $manifest -ManifestPath $ManifestPath
+
+  try {
+    foreach ($entry in $manifest.Entries) {
+      $targetDirectory = Split-Path -Parent $entry.TargetPath
+      if (-not (Test-Path $targetDirectory)) {
+        New-Item -ItemType Directory -Path $targetDirectory -Force | Out-Null
+      }
+
+      Move-Item -LiteralPath $entry.SourcePath -Destination $entry.TargetPath
+      $entry.State = 'moved'
+      $entry.MovedAt = [DateTimeOffset]::Now.ToString('o')
+      $manifest.Status = 'in-progress'
+      $manifest.UpdatedAt = $entry.MovedAt
+      $resolvedManifestPath = Write-DownloadManifest -Manifest $manifest -ManifestPath $ManifestPath
+    }
+  } catch {
+    $manifest.Status = 'partial'
+    $manifest.FailedAt = [DateTimeOffset]::Now.ToString('o')
+    $manifest.UpdatedAt = $manifest.FailedAt
+    $manifest.FailureMessage = $_.Exception.Message
+
+    try {
+      $resolvedManifestPath = Write-DownloadManifest -Manifest $manifest -ManifestPath $ManifestPath
+    } catch {
+      # Best effort only. The initial planned manifest is already on disk.
     }
 
-    Move-Item -LiteralPath $entry.SourcePath -Destination $entry.TargetPath
+    throw
   }
 
-  $manifest = [pscustomobject]@{
-    CreatedAt = [DateTimeOffset]::Now.ToString('o')
-    SourcePath = $resolvedSourcePath
-    Entries = @(
-      foreach ($entry in $preview) {
-        [pscustomobject]@{
-          Name = $entry.Name
-          Category = $entry.Category
-          SourcePath = $entry.SourcePath
-          TargetPath = $entry.TargetPath
-        }
-      }
-    )
-  }
-
+  $manifest.Status = 'applied'
+  $manifest.CompletedAt = [DateTimeOffset]::Now.ToString('o')
+  $manifest.UpdatedAt = $manifest.CompletedAt
+  $manifest.FailureMessage = $null
   $resolvedManifestPath = Write-DownloadManifest -Manifest $manifest -ManifestPath $ManifestPath
+
   return [pscustomobject]@{
     Action = 'applied'
     SourcePath = $resolvedSourcePath
@@ -277,6 +370,7 @@ Export-ModuleMember -Function @(
   'Get-DownloadOrganizationPreview',
   'Get-DownloadOrganizerManifestPath',
   'Invoke-DownloadOrganization',
+  'New-DownloadManifest',
   'Read-DownloadManifest',
   'Undo-DownloadOrganization'
 )

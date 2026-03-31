@@ -44,6 +44,15 @@ try {
     throw 'Manifesto nao foi gravado.'
   }
 
+  $manifest = Read-DownloadManifest -ManifestPath $manifestPath
+  if ($manifest.Status -ne 'applied') {
+    throw "Esperava manifesto com status 'applied', encontrei '$($manifest.Status)'."
+  }
+
+  if ((@($manifest.Entries | Where-Object { $_.State -eq 'moved' })).Count -ne 5) {
+    throw 'Nem todos os itens foram registrados como movidos no manifesto.'
+  }
+
   $undo = Undo-DownloadOrganization -ManifestPath $manifestPath
   if ($undo.Count -ne 5) {
     throw "Esperava 5 itens restaurados, encontrei $($undo.Count)."
@@ -55,6 +64,25 @@ try {
 
   if (-not (Test-Path (Join-Path $downloadsPath 'photo.jpg'))) {
     throw 'photo.jpg nao voltou para a raiz.'
+  }
+
+  $blockedDownloadsPath = Join-Path $tempRoot 'BlockedDownloads'
+  $blockedManifestPath = Join-Path $tempRoot 'blocked-manifest'
+  $null = New-Item -ItemType Directory -Path $blockedDownloadsPath -Force
+  $null = New-Item -ItemType Directory -Path $blockedManifestPath -Force
+  Set-Content -LiteralPath (Join-Path $blockedDownloadsPath 'keep.pdf') -Value 'pdf'
+
+  try {
+    Invoke-DownloadOrganization -SourcePath $blockedDownloadsPath -ManifestPath $blockedManifestPath | Out-Null
+    throw 'Esperava falha ao gravar manifesto em um caminho que aponta para diretorio.'
+  } catch {
+    if (-not (Test-Path (Join-Path $blockedDownloadsPath 'keep.pdf'))) {
+      throw 'O arquivo foi movido mesmo com falha na gravacao inicial do manifesto.'
+    }
+
+    if (Test-Path (Join-Path $blockedDownloadsPath 'Documents\keep.pdf')) {
+      throw 'O arquivo nao deveria ter sido organizado quando o manifesto inicial falha.'
+    }
   }
 
   Write-Output 'DOWNLOAD_ORGANIZER_SMOKE_OK'
