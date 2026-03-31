@@ -18,3 +18,7 @@ Script em AutoHotkey v2 para automatizar cliques no jogo Capybara Clicker no nav
 7. Use `F9` para mostrar o status atual.
 
 O arquivo `capybara_clicker_bot.ini` e ignorado pelo Git porque guarda a calibracao local da sua janela.
+
+## Licenca
+
+Este projeto esta licenciado sob a licenca MIT. Veja o arquivo `LICENSE`.
