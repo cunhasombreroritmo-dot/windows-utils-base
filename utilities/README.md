@@ -17,3 +17,4 @@ Para criar a base automaticamente:
 Utilitarios ja iniciados:
 
 - `clipboard-helper`: historico simples de textos da area de transferencia com persistencia local
+- `download-organizer`: organiza a pasta Downloads por categoria com `preview`, `apply` e `undo`

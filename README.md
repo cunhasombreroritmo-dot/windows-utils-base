@@ -25,7 +25,7 @@ O bot legado de Capybara Clicker foi removido do codigo principal. O repositorio
 
 ## Estado atual
 
-O primeiro utilitario ativo desta base e `clipboard-helper`, focado em salvar, listar e restaurar textos da area de transferencia. Novos utilitarios entram pela pasta `utilities/` usando o mesmo padrao.
+Os utilitarios ativos desta base sao `clipboard-helper`, para historico de clipboard, e `download-organizer`, para organizar a pasta Downloads por categoria. Novos utilitarios entram pela pasta `utilities/` usando o mesmo padrao.
 
 ## Como iniciar um utilitario
 
@@ -43,9 +43,10 @@ Isso cria:
 
 ## Utilitario atual
 
-Primeiro utilitario real:
+Utilitarios atuais:
 
 - `utilities/clipboard-helper`: historico local de clipboard com comandos `save`, `list`, `copy`, `remove`, `clear` e `path`
+- `utilities/download-organizer`: organizacao da pasta Downloads com comandos `preview`, `apply`, `undo` e `path`
 
 ## Licenca
 
