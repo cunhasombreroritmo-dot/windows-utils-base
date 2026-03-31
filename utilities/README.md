@@ -7,6 +7,7 @@ Estrutura esperada:
 - `utilities/<nome>/README.md`
 - `utilities/<nome>/src/`
 - `utilities/<nome>/tests/`
+- `utilities/<nome>/tests/<nome>.Tests.ps1`
 
 Para criar a base automaticamente:
 
@@ -14,6 +15,14 @@ Para criar a base automaticamente:
 ./scripts/new-utility.ps1 -Name meu-utilitario
 ```
 
+Antes de abrir PR para qualquer utilitario:
+
+```powershell
+./scripts/lint.ps1
+./scripts/test.ps1
+```
+
 Utilitarios ja iniciados:
 
 - `clipboard-helper`: historico simples de textos da area de transferencia com persistencia local
+- `download-organizer`: organiza a pasta Downloads por categoria com `preview`, `apply` e `undo`
