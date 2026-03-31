@@ -1,16 +1,29 @@
-# Runtime/config local
-capybara_clicker_bot.ini
+# Local runtime/config state
 *.ini.local
+*.local
+*.local.*
+*.user
 
 # Tooling logs and captures
 .playwright-cli/
 *.log
+*.stackdump
 
 # Temporary and backup files
 *.tmp
 *.temp
 *.bak
 *.orig
+*.rej
+*.ahk.bak
+*.ahk~
+
+# Build and release outputs
+build/
+dist/
+out/
+release/
+artifacts/
 
 # Editor and IDE folders
 .vscode/
@@ -21,3 +34,4 @@ capybara_clicker_bot.ini
 Thumbs.db
 Desktop.ini
 $RECYCLE.BIN/
+*.lnk
