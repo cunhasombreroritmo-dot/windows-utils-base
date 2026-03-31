@@ -1,0 +1,72 @@
+name: Repo Hygiene
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+jobs:
+  validate:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Validate repository baseline
+        shell: pwsh
+        run: |
+          $required = @(
+            'README.md',
+            'LICENSE',
+            'CONTRIBUTING.md',
+            '.gitignore',
+            '.editorconfig',
+            '.gitattributes',
+            '.github/CODEOWNERS',
+            '.github/PULL_REQUEST_TEMPLATE.md',
+            '.github/ISSUE_TEMPLATE/bug_report.md',
+            '.github/ISSUE_TEMPLATE/feature_request.md',
+            'scripts/new-utility.ps1',
+            'utilities/README.md'
+          )
+
+          $missing = $required | Where-Object { -not (Test-Path $_) }
+          if ($missing.Count -gt 0) {
+            throw "Missing required files: $($missing -join ', ')"
+          }
+
+          $legacyFiles = @(
+            'capybara_clicker_bot.ahk',
+            'qsetup.txt'
+          )
+
+          $presentLegacyFiles = $legacyFiles | Where-Object { Test-Path $_ }
+          if ($presentLegacyFiles.Count -gt 0) {
+            throw "Legacy files should stay out of the active repository: $($presentLegacyFiles -join ', ')"
+          }
+
+          $scaffoldName = 'workflow-smoke'
+          $scaffoldRoot = Join-Path (Get-Location) "utilities/$scaffoldName"
+
+          try {
+            ./scripts/new-utility.ps1 -Name $scaffoldName | Out-Null
+
+            $scaffoldReadme = Join-Path $scaffoldRoot 'README.md'
+            if (-not (Test-Path $scaffoldReadme)) {
+              throw "Scaffold README was not created at $scaffoldReadme"
+            }
+
+            $scaffoldContent = Get-Content $scaffoldReadme -Raw
+            if ($scaffoldContent -notmatch [regex]::Escape('- `src/`: codigo principal')) {
+              throw 'Scaffold README lost the expected Markdown for src/.'
+            }
+
+            if ($scaffoldContent -notmatch [regex]::Escape('- `tests/`: testes e validacoes')) {
+              throw 'Scaffold README lost the expected Markdown for tests/.'
+            }
+          } finally {
+            if (Test-Path $scaffoldRoot) {
+              Remove-Item -LiteralPath $scaffoldRoot -Recurse -Force
+            }
+          }
