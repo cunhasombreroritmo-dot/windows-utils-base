@@ -13,6 +13,7 @@ Use branches curtas e descritivas:
 Quando um novo utilitario for comecar, gere a base com:
 
 ```powershell
+./scripts/bootstrap-dev.ps1
 ./scripts/new-utility.ps1 -Name nome-do-utilitario
 ```
 
@@ -34,4 +35,11 @@ Quando um novo utilitario for comecar, gere a base com:
 
 ## Validacao
 
-O workflow `Repo Hygiene` roda no GitHub para garantir a presenca dos arquivos-base e impedir a volta dos artefatos legados removidos nesta limpeza.
+Antes de abrir PR, rode:
+
+```powershell
+./scripts/lint.ps1
+./scripts/test.ps1
+```
+
+Os workflows `Repo Hygiene` e `PowerShell Quality` rodam no GitHub para garantir a presenca dos arquivos-base, impedir a volta dos artefatos legados removidos nesta limpeza e validar lint/testes.

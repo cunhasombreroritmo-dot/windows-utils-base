@@ -47,9 +47,16 @@ Documente aqui como executar, testar e empacotar.
 '@
 
 $readme = $readmeTemplate.Replace('__UTILITY_NAME__', $Name)
+$testTemplate = @'
+Describe '__UTILITY_NAME__' {
+  It 'ainda precisa de cobertura' {
+    Set-ItResult -Skipped -Because 'Implemente os testes deste utilitario.'
+  }
+}
+'@
 
 Set-Content -LiteralPath $readmePath -Value $readme
 Set-Content -LiteralPath (Join-Path $utilityRoot 'src\.gitkeep') -Value ''
-Set-Content -LiteralPath (Join-Path $utilityRoot 'tests\.gitkeep') -Value ''
+Set-Content -LiteralPath (Join-Path $utilityRoot "tests\$Name.Tests.ps1") -Value ($testTemplate.Replace('__UTILITY_NAME__', $Name))
 
 Write-Output "Utility scaffold created at $utilityRoot"
