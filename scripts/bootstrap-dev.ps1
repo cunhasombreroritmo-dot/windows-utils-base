@@ -1,3 +1,4 @@
+#Requires -Version 5.1
 [CmdletBinding()]
 param(
   [ValidateSet('CurrentUser', 'AllUsers')]
@@ -9,23 +10,26 @@ $ErrorActionPreference = 'Stop'
 $requiredModules = @(
   @{
     Name = 'Pester'
-    MinimumVersion = [version]'5.0.0'
+    RequiredVersion = [version]'5.7.1'
   },
   @{
     Name = 'PSScriptAnalyzer'
-    MinimumVersion = [version]'1.21.0'
+    RequiredVersion = [version]'1.24.0'
   }
 )
 
-function Get-LatestInstalledModule {
+function Get-RequiredInstalledModule {
   [CmdletBinding()]
   param(
     [Parameter(Mandatory = $true)]
-    [string]$Name
+    [string]$Name,
+
+    [Parameter(Mandatory = $true)]
+    [version]$Version
   )
 
   return Get-Module -ListAvailable $Name |
-    Sort-Object Version -Descending |
+    Where-Object { $_.Version -eq $Version } |
     Select-Object -First 1
 }
 
@@ -39,8 +43,8 @@ function Install-RequiredModule {
     [string]$Scope
   )
 
-  $installed = Get-LatestInstalledModule -Name $Module.Name
-  if ($installed -and $installed.Version -ge $Module.MinimumVersion) {
+  $installed = Get-RequiredInstalledModule -Name $Module.Name -Version $Module.RequiredVersion
+  if ($installed) {
     return [pscustomobject]@{
       Name = $Module.Name
       Version = $installed.Version.ToString()
@@ -49,20 +53,26 @@ function Install-RequiredModule {
   }
 
   if (Get-Command Install-PSResource -ErrorAction SilentlyContinue) {
-    if (Get-Command Set-PSResourceRepository -ErrorAction SilentlyContinue) {
-      Set-PSResourceRepository -Name PSGallery -Trusted
-    }
-
-    Install-PSResource -Name $Module.Name -Repository PSGallery -Scope $Scope -TrustRepository -Quiet
+    Install-PSResource -Name $Module.Name -Version $Module.RequiredVersion.ToString() -Repository PSGallery -Scope $Scope -TrustRepository -Quiet -ErrorAction Stop
   } elseif (Get-Command Install-Module -ErrorAction SilentlyContinue) {
-    Set-PSRepository -Name PSGallery -InstallationPolicy Trusted
-    Install-Module -Name $Module.Name -Repository PSGallery -Scope $Scope -Force -AllowClobber
+    # Pester 3.4 bundled with Windows uses a different publisher certificate.
+    # Scope this compatibility exception to Pester; repository trust stays unchanged.
+    $installParameters = @{
+      Name = $Module.Name
+      RequiredVersion = $Module.RequiredVersion
+      Repository = 'PSGallery'
+      Scope = $Scope
+      Force = $true
+      ErrorAction = 'Stop'
+    }
+    if ($Module.Name -eq 'Pester') { $installParameters.SkipPublisherCheck = $true }
+    Install-Module @installParameters
   } else {
     throw 'Nenhum gerenciador de modulos PowerShell disponivel para instalar dependencias.'
   }
 
-  $resolved = Get-LatestInstalledModule -Name $Module.Name
-  if (-not $resolved -or $resolved.Version -lt $Module.MinimumVersion) {
+  $resolved = Get-RequiredInstalledModule -Name $Module.Name -Version $Module.RequiredVersion
+  if (-not $resolved) {
     throw "Falha ao instalar o modulo $($Module.Name)."
   }
 

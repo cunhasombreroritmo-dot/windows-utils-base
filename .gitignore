@@ -24,6 +24,7 @@ dist/
 out/
 release/
 artifacts/
+test-results*.xml
 
 # Editor and IDE folders
 .vscode/

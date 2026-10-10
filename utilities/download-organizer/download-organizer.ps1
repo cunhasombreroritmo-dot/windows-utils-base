@@ -1,4 +1,5 @@
-[CmdletBinding()]
+#Requires -Version 5.1
+[CmdletBinding(SupportsShouldProcess = $true)]
 param(
   [Parameter(Position = 0)]
   [ValidateSet('preview', 'apply', 'undo', 'path')]
@@ -11,6 +12,10 @@ param(
 $ErrorActionPreference = 'Stop'
 
 Import-Module (Join-Path $PSScriptRoot 'src\DownloadOrganizer.psm1') -Force
+$operationParameters = @{ WhatIf = $WhatIfPreference }
+if ($PSBoundParameters.ContainsKey('Confirm')) {
+  $operationParameters.Confirm = $PSBoundParameters['Confirm']
+}
 
 switch ($Command) {
   'preview' {
@@ -18,23 +23,11 @@ switch ($Command) {
   }
 
   'apply' {
-    $result = Invoke-DownloadOrganization -SourcePath $SourcePath -ManifestPath $ManifestPath
-    [pscustomobject]@{
-      Action = $result.Action
-      SourcePath = $result.SourcePath
-      ManifestPath = $result.ManifestPath
-      Count = $result.Count
-    }
+    Invoke-DownloadOrganization -SourcePath $SourcePath -ManifestPath $ManifestPath @operationParameters
   }
 
   'undo' {
-    $result = Undo-DownloadOrganization -ManifestPath $ManifestPath
-    [pscustomobject]@{
-      Action = $result.Action
-      SourcePath = $result.SourcePath
-      ManifestPath = $result.ManifestPath
-      Count = $result.Count
-    }
+    Undo-DownloadOrganization -ManifestPath $ManifestPath @operationParameters
   }
 
   'path' {

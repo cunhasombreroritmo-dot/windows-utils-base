@@ -56,6 +56,8 @@ Utilitarios atuais:
 
 ## Qualidade local
 
+Os utilitarios suportam Windows PowerShell 5.1 e PowerShell 7 no Windows. O bootstrap usa versoes fixas de Pester (5.7.1) e PSScriptAnalyzer (1.24.0), sem alterar permanentemente a politica de confianca dos repositorios de modulos.
+
 Use estes comandos na raiz:
 
 ```powershell
@@ -63,6 +65,8 @@ Use estes comandos na raiz:
 ./scripts/lint.ps1
 ./scripts/test.ps1
 ```
+
+O runner inclui `utilities/` e `scripts/tests/`, falha em erros de descoberta/setup e recusa suites vazias ou com testes ignorados, inconclusivos ou nao executados. O scaffold cria um teste ignorado que precisa ser implementado antes de a validacao passar. Use `-Path` para selecionar arquivos/pastas e `-ResultPath test-results.xml` para exportar resultados NUnit. O workflow executa lint e testes nas duas versoes do PowerShell e guarda os resultados como artefatos.
 
 ## Licenca
 

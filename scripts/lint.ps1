@@ -10,7 +10,7 @@ $lintPaths = @(
   (Join-Path $repoRoot 'utilities')
 )
 
-Import-Module PSScriptAnalyzer -MinimumVersion 1.21.0 -ErrorAction Stop
+Import-Module PSScriptAnalyzer -RequiredVersion 1.24.0 -ErrorAction Stop
 
 $issues = @(
   foreach ($path in $lintPaths) {

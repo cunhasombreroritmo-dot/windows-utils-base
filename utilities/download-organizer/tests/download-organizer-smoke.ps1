@@ -72,17 +72,20 @@ try {
   $null = New-Item -ItemType Directory -Path $blockedManifestPath -Force
   Set-Content -LiteralPath (Join-Path $blockedDownloadsPath 'keep.pdf') -Value 'pdf'
 
+  $failedAsExpected = $false
   try {
     Invoke-DownloadOrganization -SourcePath $blockedDownloadsPath -ManifestPath $blockedManifestPath | Out-Null
-    throw 'Esperava falha ao gravar manifesto em um caminho que aponta para diretorio.'
   } catch {
-    if (-not (Test-Path (Join-Path $blockedDownloadsPath 'keep.pdf'))) {
-      throw 'O arquivo foi movido mesmo com falha na gravacao inicial do manifesto.'
-    }
-
-    if (Test-Path (Join-Path $blockedDownloadsPath 'Documents\keep.pdf')) {
-      throw 'O arquivo nao deveria ter sido organizado quando o manifesto inicial falha.'
-    }
+    $failedAsExpected = $true
+  }
+  if (-not $failedAsExpected) {
+    throw 'Esperava falha ao gravar manifesto em um caminho que aponta para diretorio.'
+  }
+  if (-not (Test-Path -LiteralPath (Join-Path $blockedDownloadsPath 'keep.pdf'))) {
+    throw 'O arquivo foi movido mesmo com falha na gravacao inicial do manifesto.'
+  }
+  if (Test-Path -LiteralPath (Join-Path $blockedDownloadsPath 'Documents\keep.pdf')) {
+    throw 'O arquivo nao deveria ter sido organizado quando o manifesto inicial falha.'
   }
 
   Write-Output 'DOWNLOAD_ORGANIZER_SMOKE_OK'
