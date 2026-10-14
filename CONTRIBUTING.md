@@ -45,3 +45,5 @@ Antes de abrir PR, rode:
 Os workflows `Repo Hygiene` e `PowerShell Quality` rodam no GitHub para garantir a presenca dos arquivos-base, impedir a volta dos artefatos legados removidos nesta limpeza e validar lint/testes.
 
 O workflow de qualidade valida Windows PowerShell 5.1 e PowerShell 7 com as mesmas versoes de dependencias. Implemente o teste ignorado gerado pelo scaffold: suites vazias, com placeholders ignorados ou falhas de descoberta/setup sao reprovadas. Novas operacoes que movem dados precisam de testes para colisoes, falhas parciais e repeticao da reversao, alem do fluxo de sucesso.
+
+Para mudancas no bootstrap, mantenha os testes de ambos os gerenciadores e escopos em `scripts/tests/`. Use modulos ficticios e instaladores simulados nos testes unitarios; eles nao devem instalar pacotes no perfil do desenvolvedor. A etapa de integracao do CI executa `scripts/verify-bootstrap.ps1` e deve preservar a confianca e o endereco registrado do PSGallery.
