@@ -40,14 +40,22 @@ function Test-BootstrapResult {
 function Get-GalleryTrustSnapshot {
   [CmdletBinding()]
   param()
-  if (Get-Command Get-PSResourceRepository -ErrorAction SilentlyContinue) {
-    $repository = Get-PSResourceRepository -Name PSGallery -ErrorAction Stop
-    "PSResourceGet|$($repository.Uri)|$($repository.Trusted)"
-  }
-  if (Get-Command Get-PSRepository -ErrorAction SilentlyContinue) {
-    $repository = Get-PSRepository -Name PSGallery -ErrorAction Stop
-    "PowerShellGet|$($repository.SourceLocation)|$($repository.InstallationPolicy)"
-  }
+  $previousProtocol = [Net.ServicePointManager]::SecurityProtocol
+  try {
+    # Stock PowerShellGet may contact the Gallery while initializing its repository store.
+    # Restore the initial protocol before bootstrap so first-use still exercises its own preparation.
+    if ($PSVersionTable.PSEdition -eq 'Desktop') {
+      [Net.ServicePointManager]::SecurityProtocol = $previousProtocol -bor [Net.SecurityProtocolType]::Tls12
+    }
+    if (Get-Command Get-PSResourceRepository -ErrorAction SilentlyContinue) {
+      $repository = Get-PSResourceRepository -Name PSGallery -ErrorAction Stop
+      "PSResourceGet|$($repository.Uri)|$($repository.Trusted)"
+    }
+    if (Get-Command Get-PSRepository -ErrorAction SilentlyContinue) {
+      $repository = Get-PSRepository -Name PSGallery -ErrorAction Stop
+      "PowerShellGet|$($repository.SourceLocation)|$($repository.InstallationPolicy)"
+    }
+  } finally { [Net.ServicePointManager]::SecurityProtocol = $previousProtocol }
 }
 
 # Initialize repository stores before taking a baseline. Their creation is not a trust change.

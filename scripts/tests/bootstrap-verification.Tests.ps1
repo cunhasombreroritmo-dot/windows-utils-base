@@ -152,4 +152,22 @@ $source = if ($fixtureState.Calls -eq 1) { 'installed' } else { 'existing' }
     [IO.File]::WriteAllText($fixture, $singleFixture, [Text.UTF8Encoding]::new($false))
     { & $script:verificationPath } | Should -Throw '*duas dependencias*'
   }
+
+  It 'enables TLS for the stock repository read and restores it before bootstrap' {
+    $previousProtocol = [Net.ServicePointManager]::SecurityProtocol
+    try {
+      [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls11
+      Mock Get-PSRepository {
+        if ($PSVersionTable.PSEdition -eq 'Desktop') {
+          ([Net.ServicePointManager]::SecurityProtocol -band [Net.SecurityProtocolType]::Tls12) | Should -Be ([Net.SecurityProtocolType]::Tls12)
+        }
+        [pscustomobject]@{ SourceLocation = 'https://www.powershellgallery.com/api/v2'; InstallationPolicy = 'Untrusted' }
+      }
+      # Make the fixture reject leaked TLS state before it returns any dependencies.
+      $checkedFixture = $fixtureContent.Replace('if (-not $PassThru)', "if ([Net.ServicePointManager]::SecurityProtocol -ne [Net.SecurityProtocolType]::Tls11) { throw 'snapshot changed TLS' }; if (-not $" + 'PassThru)')
+      [IO.File]::WriteAllText($fixture, $checkedFixture, [Text.UTF8Encoding]::new($false))
+      $null = & $script:verificationPath
+      [Net.ServicePointManager]::SecurityProtocol | Should -Be ([Net.SecurityProtocolType]::Tls11)
+    } finally { [Net.ServicePointManager]::SecurityProtocol = $previousProtocol }
+  }
 }
