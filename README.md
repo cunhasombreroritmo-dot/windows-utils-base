@@ -64,7 +64,9 @@ Os destinos seguem o motor que executa o bootstrap: `Documents/WindowsPowerShell
 
 Quando `Install-PSResource` esta disponivel, ele tem preferencia; caso contrario, o bootstrap usa `Install-Module`. `-TrustRepository` no primeiro caminho e `-Force` no segundo dispensam a confirmacao de confianca apenas para a operacao. `SkipPublisherCheck` e restrito ao Pester no segundo caminho para compatibilidade com o Pester antigo do Windows. Esses parametros nao configuram o PSGallery como permanentemente confiavel. A instalacao deixa os modulos no disco e pode inicializar o armazenamento do gerenciador; a promessa acima se refere a politica de confianca, nao a ausencia de arquivos persistentes.
 
-No Windows PowerShell 5.1, o caminho com PowerShellGet depende de um provedor NuGet disponivel e acesso ao PSGallery por TLS 1.2 ou superior. Falhas de permissao, rede, gerenciador ou instalacao interrompem o bootstrap; ele nao troca silenciosamente de gerenciador depois de uma falha. As versoes das dependencias sao fixas, mas os gerenciadores sao os disponiveis no ambiente.
+No caminho com PowerShellGet, o bootstrap prepara um provedor NuGet de versao minima 2.8.5.201 quando necessario, usando o escopo escolhido e sem prompts. No Windows PowerShell 5.1, habilita TLS 1.2 somente durante essa operacao e restaura o estado anterior da sessao mesmo em caso de erro. Nao altera o perfil, a politica de execucao ou a confianca do PSGallery. `AllUsers` exige elevacao antes de qualquer instalacao; dependencias completas ja instaladas nesse escopo podem ser reaproveitadas por um usuario comum.
+
+Falhas de permissao, rede, gerenciador, provedor ou instalacao interrompem o bootstrap; ele nao troca silenciosamente de gerenciador depois de uma falha. Uma falha pode deixar o provedor ou a primeira dependencia instalada: nao ha rollback de pacotes compartilhados. Corrija a causa e repita o comando; as versoes corretas no destino sao reaproveitadas. As versoes das dependencias sao fixas, mas os gerenciadores sao os disponiveis no ambiente. Os componentes originais PowerShellGet/PackageManagement 1.0.0.1 sao antigos e sem suporte da Microsoft; sua compatibilidade de primeiro uso e testada separadamente, sem atualizar automaticamente os gerenciadores. [Orientacao da Microsoft](https://learn.microsoft.com/powershell/gallery/powershellget/install-powershellget).
 
 Use estes comandos na raiz:
 
@@ -76,7 +78,15 @@ Use estes comandos na raiz:
 
 O runner inclui `utilities/` e `scripts/tests/`, falha em erros de descoberta/setup e recusa suites vazias ou com testes ignorados, inconclusivos ou nao executados. O scaffold cria um teste ignorado que precisa ser implementado antes de a validacao passar. Use `-Path` para selecionar arquivos/pastas e `-ResultPath test-results.xml` para exportar resultados NUnit. O workflow executa lint e testes nas duas versoes do PowerShell e guarda os resultados como artefatos.
 
-Os testes do bootstrap usam modulos ficticios locais e instaladores simulados para exercitar ambos os gerenciadores, ambos os escopos, reaproveitamento e falhas sem instalar pacotes reais. Separadamente, `scripts/verify-bootstrap.ps1` faz o bootstrap real em `CurrentUser` e compara a confianca e o endereco do PSGallery antes/depois nos gerenciadores disponiveis. O CI executa essa verificacao nos dois motores; esse teste de integracao nao cobre uma instalacao real em `AllUsers` nem todo ambiente inicial de Windows 5.1.
+Os testes do bootstrap usam modulos ficticios locais e instaladores simulados para exercitar ambos os gerenciadores, ambos os escopos, reaproveitamento, preparacao NuGet/TLS e falhas sem instalar pacotes reais. Separadamente, `scripts/verify-bootstrap.ps1 -Scope CurrentUser` (ou `AllUsers`) verifica versoes, destinos, importacao real dos modulos, reutilizacao na segunda execucao e confianca/URL do PSGallery antes/depois. `-RequireInstallation` exige que a primeira execucao realmente instale ambas as dependencias.
+
+O workflow tem quatro combinacoes de motor/escopo para instalacao real, lint e testes. Nas combinacoes `AllUsers`, outro usuario comum importa os modulos por nome. Dois jobs adicionais exercitam o primeiro uso do 5.1 nos dois escopos com PowerShellGet/PackageManagement 1.0.0.1, NuGet ausente e TLS 1.2 inicialmente desabilitado. A preparacao move somente as versoes de dependencia e o provedor NuGet conhecidos para backup no runner descartavel; os scripts de preparacao e criacao de usuario recusam execucao fora de runners hospedados pelo GitHub.
+
+Essa integracao reproduz pre-requisitos de primeiro uso com componentes reais em uma imagem Windows Server preparada; nao equivale a uma VM Windows cliente recem-instalada nem cobre todas as politicas corporativas, proxies ou ambientes offline. A existencia dos jobs nao prova que passaram: consulte os resultados associados ao head do PR.
+
+## Prontidao para revisao e merge
+
+Para sair do draft, a implementacao deve estar concluida, o diff revisado, os checks de higiene e qualidade do head atual aprovados, e a descricao deve registrar validacao e limitacoes. Mudancas no bootstrap exigem tambem os jobs de primeiro uso e importacao por outro usuario nas combinacoes `AllUsers`. Falhas ou ausencia dessas evidencias mantem a mudanca em draft. Para merge, e necessaria uma revisao aprovada, alem desses checks; CI verde nao substitui revisao humana.
 
 ## Licenca
 

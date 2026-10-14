@@ -11,20 +11,29 @@ permissions:
 
 jobs:
   quality:
-    name: quality (${{ matrix.shell }})
+    name: quality (${{ matrix.shell }}, ${{ matrix.scope }})
     runs-on: windows-latest
     timeout-minutes: 15
     strategy:
       fail-fast: false
       matrix:
         shell: [pwsh, powershell]
+        scope: [CurrentUser, AllUsers]
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
       - name: Bootstrap developer modules
         shell: pwsh
-        run: "& '${{ matrix.shell }}' -NoProfile -NonInteractive -ExecutionPolicy Bypass -File ./scripts/verify-bootstrap.ps1"
+        run: |
+          ./scripts/ci/prepare-bootstrap.ps1
+          & '${{ matrix.shell }}' -NoProfile -NonInteractive -ExecutionPolicy Bypass -File ./scripts/verify-bootstrap.ps1 -Scope '${{ matrix.scope }}' -RequireInstallation
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Verify AllUsers from another standard user
+        if: matrix.scope == 'AllUsers'
+        shell: pwsh
+        run: ./scripts/ci/invoke-allusers-consumer.ps1 -Engine '${{ matrix.shell }}'
 
       - name: Lint
         shell: pwsh
@@ -38,6 +47,30 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: test-results-${{ matrix.shell }}
+          name: test-results-${{ matrix.shell }}-${{ matrix.scope }}
           path: test-results.xml
-          if-no-files-found: warn
+          if-no-files-found: error
+
+  first-use:
+    name: first-use (powershell, ${{ matrix.scope }})
+    runs-on: windows-latest
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        scope: [CurrentUser, AllUsers]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Prepare absent dependencies and NuGet provider
+        shell: pwsh
+        run: ./scripts/ci/prepare-bootstrap.ps1 -FirstUse
+      - name: Bootstrap with original Windows managers and no TLS 1.2
+        shell: pwsh
+        run: |
+          & powershell -NoProfile -NonInteractive -ExecutionPolicy Bypass -File ./scripts/ci/verify-first-use.ps1 -Scope '${{ matrix.scope }}'
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Verify AllUsers from another standard user
+        if: matrix.scope == 'AllUsers'
+        shell: pwsh
+        run: ./scripts/ci/invoke-allusers-consumer.ps1 -Engine powershell

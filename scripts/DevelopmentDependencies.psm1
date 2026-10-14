@@ -39,6 +39,9 @@ function Install-DevelopmentDependency {
   $resolved = Get-DevelopmentDependency -Name $Module.Name -Version $Module.RequiredVersion -ModuleRoot $ModuleRoot
   $source = 'existing'
   if (-not $resolved) {
+    if ($Scope -eq 'AllUsers' -and -not (Test-DevelopmentElevation)) {
+      throw 'AllUsers requer uma sessao elevada para instalar dependencias. Use CurrentUser ou execute como administrador.'
+    }
     if (Get-Command Install-PSResource -ErrorAction SilentlyContinue) {
       # TrustRepository suppresses this operation's prompt; it does not persist trust.
       Install-PSResource -Name $Module.Name -Version $Module.RequiredVersion.ToString() -Repository PSGallery -Scope $Scope -TrustRepository -Quiet -ErrorAction Stop
@@ -54,7 +57,17 @@ function Install-DevelopmentDependency {
       # Pester 3.4 bundled with Windows uses a different publisher certificate.
       # Force suppresses repository prompts; neither switch changes repository policy.
       if ($Module.Name -eq 'Pester') { $installParameters.SkipPublisherCheck = $true }
-      Install-Module @installParameters
+      $previousProtocol = [Net.ServicePointManager]::SecurityProtocol
+      try {
+        if ($PSVersionTable.PSEdition -eq 'Desktop') {
+          [Net.ServicePointManager]::SecurityProtocol = $previousProtocol -bor [Net.SecurityProtocolType]::Tls12
+        }
+        Initialize-DevelopmentPackageProvider -Scope $Scope
+        Install-Module @installParameters
+      } finally {
+        # TLS is process-local; never change the developer's profile or leave session state changed.
+        [Net.ServicePointManager]::SecurityProtocol = $previousProtocol
+      }
     } else {
       throw 'Nenhum gerenciador de modulos PowerShell disponivel para instalar dependencias.'
     }
@@ -72,6 +85,34 @@ function Install-DevelopmentDependency {
     Source = $source
     Scope = $Scope
     ModuleBase = $resolved.ModuleBase
+  }
+}
+
+function Test-DevelopmentElevation {
+  [CmdletBinding()]
+  param()
+  $identity = [Security.Principal.WindowsIdentity]::GetCurrent()
+  try {
+    $principal = [Security.Principal.WindowsPrincipal]::new($identity)
+    return $principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
+  } finally {
+    $identity.Dispose()
+  }
+}
+
+function Initialize-DevelopmentPackageProvider {
+  [CmdletBinding()]
+  param([string]$Scope)
+  $minimumVersion = [version]'2.8.5.201'
+  # Listing all local providers avoids an online search/prompt when NuGet is absent.
+  $available = @(Get-PackageProvider -ListAvailable -ErrorAction Stop |
+    Where-Object { $_.Name -eq 'NuGet' -and [version]$_.Version -ge $minimumVersion })
+  if ($available.Count -eq 0) {
+    Write-Verbose "Instalando provedor NuGet em $Scope."
+    $null = Install-PackageProvider -Name NuGet -MinimumVersion $minimumVersion.ToString() -Scope $Scope -Force -ErrorAction Stop
+    $available = @(Get-PackageProvider -ListAvailable -ErrorAction Stop |
+      Where-Object { $_.Name -eq 'NuGet' -and [version]$_.Version -ge $minimumVersion })
+    if ($available.Count -eq 0) { throw 'A instalacao do provedor NuGet nao disponibilizou a versao minima 2.8.5.201.' }
   }
 }
 

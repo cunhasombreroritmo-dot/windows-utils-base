@@ -47,6 +47,8 @@ Describe 'bootstrap installation destinations' {
       }
       Mock Install-PSResource { New-FixtureModule -Name $Name -Version $Version -Root $script:roots[$Scope] }
       Mock Install-Module { New-FixtureModule -Name $Name -Version $RequiredVersion -Root $script:roots[$Scope] }
+      Mock Test-DevelopmentElevation { $true }
+      Mock Initialize-DevelopmentPackageProvider {}
     }
 
     It 'installs exact versions through <Manager> in <Scope>' -ForEach @(
@@ -142,6 +144,86 @@ Describe 'bootstrap installation destinations' {
     It 'rejects an installer that puts modules in the wrong scope' {
       Mock Install-PSResource { New-FixtureModule -Name $Name -Version $Version -Root $script:roots.CurrentUser }
       { Initialize-DevelopmentEnvironment -Scope AllUsers } | Should -Throw '*Falha ao instalar*AllUsers*'
+    }
+
+    It 'rejects unelevated AllUsers before contacting either manager' {
+      Mock Test-DevelopmentElevation { $false }
+      { Initialize-DevelopmentEnvironment -Scope AllUsers } | Should -Throw '*sessao elevada*'
+      Should -Invoke Get-Command -Times 0 -Exactly
+      Should -Invoke Install-Module -Times 0 -Exactly
+      Should -Invoke Install-PSResource -Times 0 -Exactly
+      Should -Invoke Initialize-DevelopmentPackageProvider -Times 0 -Exactly
+    }
+
+    It 'allows an unelevated user to reuse complete AllUsers dependencies' {
+      Mock Test-DevelopmentElevation { $false }
+      New-FixtureModule -Name Pester -Version 5.7.1 -Root $script:roots.AllUsers
+      New-FixtureModule -Name PSScriptAnalyzer -Version 1.24.0 -Root $script:roots.AllUsers
+      @(Initialize-DevelopmentEnvironment -Scope AllUsers | Where-Object Source -eq existing).Count | Should -Be 2
+      Should -Invoke Test-DevelopmentElevation -Times 0 -Exactly
+    }
+
+    It 'restores process TLS after PowerShellGet <Outcome>' -ForEach @(@{ Outcome = 'success' }, @{ Outcome = 'failure' }) {
+      $script:manager = 'Install-Module'
+      $previous = [Net.ServicePointManager]::SecurityProtocol
+      try {
+        [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls11
+        Mock Initialize-DevelopmentPackageProvider {
+          if ($PSVersionTable.PSEdition -eq 'Desktop') {
+            ([Net.ServicePointManager]::SecurityProtocol -band [Net.SecurityProtocolType]::Tls12) | Should -Be ([Net.SecurityProtocolType]::Tls12)
+          }
+        }
+        if ($Outcome -eq 'failure') {
+          Mock Install-Module { throw 'module install failed' }
+          { Initialize-DevelopmentEnvironment } | Should -Throw '*module install failed*'
+        } else {
+          $null = Initialize-DevelopmentEnvironment
+        }
+        [Net.ServicePointManager]::SecurityProtocol | Should -Be ([Net.SecurityProtocolType]::Tls11)
+      } finally { [Net.ServicePointManager]::SecurityProtocol = $previous }
+    }
+
+    It 'does not install a module when NuGet preparation fails' {
+      $script:manager = 'Install-Module'
+      Mock Initialize-DevelopmentPackageProvider { throw 'provider failure' }
+      { Initialize-DevelopmentEnvironment } | Should -Throw '*provider failure*'
+      Should -Invoke Install-Module -Times 0 -Exactly
+    }
+  }
+}
+
+Describe 'NuGet first-use preparation' {
+  InModuleScope DevelopmentDependencies {
+    BeforeEach {
+      $script:providers = @()
+      Mock Get-PackageProvider { $script:providers }
+      Mock Install-PackageProvider { $script:providers = @([pscustomobject]@{ Name = 'NuGet'; Version = '2.8.5.216' }) }
+    }
+    It 'prepares missing NuGet noninteractively in <Scope>' -ForEach @(@{ Scope = 'CurrentUser' }, @{ Scope = 'AllUsers' }) {
+      $script:expectedScope = $Scope
+      Initialize-DevelopmentPackageProvider -Scope $Scope
+      Should -Invoke Install-PackageProvider -Times 1 -Exactly -ParameterFilter {
+        $Name -eq 'NuGet' -and $MinimumVersion -eq '2.8.5.201' -and $Force -and $Scope -eq $script:expectedScope -and $ErrorAction -eq 'Stop'
+      }
+      Should -Invoke Get-PackageProvider -Times 2 -Exactly -ParameterFilter { $ListAvailable -and -not $Name }
+    }
+    It 'reuses an adequate provider without downloading' {
+      $script:providers = @([pscustomobject]@{ Name = 'NuGet'; Version = '2.8.5.201' })
+      Initialize-DevelopmentPackageProvider -Scope CurrentUser
+      Should -Invoke Install-PackageProvider -Times 0 -Exactly
+    }
+    It 'updates an inadequate provider' {
+      $script:providers = @([pscustomobject]@{ Name = 'NuGet'; Version = '2.8.5.100' })
+      Initialize-DevelopmentPackageProvider -Scope CurrentUser
+      Should -Invoke Install-PackageProvider -Times 1 -Exactly
+    }
+    It 'rejects a provider installer no-op' {
+      Mock Install-PackageProvider {}
+      { Initialize-DevelopmentPackageProvider -Scope CurrentUser } | Should -Throw '*nao disponibilizou*'
+    }
+    It 'propagates provider installation failures' {
+      Mock Install-PackageProvider { throw 'provider download failed' }
+      { Initialize-DevelopmentPackageProvider -Scope CurrentUser } | Should -Throw '*provider download failed*'
     }
   }
 }
